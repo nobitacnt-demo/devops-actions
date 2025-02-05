@@ -41,7 +41,7 @@ jobs:
           npm run build
       - name: Make image tags
         id: make-tags
-        uses: nobitacnt/devops-actions/actions/make-image-tags@master
+        uses: nobitacnt-demo/devops-actions/actions/make-image-tags@master
         with:
           repository: ${{ inputs.repository }}
           branch: ${{ inputs.branch }}

@@ -1,0 +1,44 @@
+name: Push artifact to S3
+description: Push artifact to S3
+inputs:
+  bucket:
+    description: S3 bucket name
+    required: true
+  project:
+    description: Project name
+    required: true
+  branch:
+    description: Branch name
+    required: true
+  path:
+    description: The file or directory need to upload
+    required: true
+  build-latest-tag:
+    description: Need to build latest tag ot not
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - run: |
+        if [ ${{ startsWith(inputs.branch, 'v') }} == true ]; then
+          prefix="release"
+          tag=$(echo "${{ inputs.branch }}" | sed "s|^v|""|")
+          buildLatestTag=true
+        else
+          prefix="dev"
+          tag="${{ inputs.branch }}"
+          buildLatestTag=false
+        fi
+
+        s3Url="s3://${{ inputs.bucket }}/$prefix/${{ inputs.project }}"
+        outputFile="/tmp/$tag.tgz"
+
+        tar --exclude=.git -czf $outputFile ${{ inputs.path }}
+
+        aws s3 cp $outputFile $s3Url/$tag.tgz
+
+        if [ ${{ inputs.build-latest-tag }} == true ] && [ $buildLatestTag == true ]; then
+          aws s3 cp $outputFile $s3Url/latest.tgz
+        fi
+      shell: bash
