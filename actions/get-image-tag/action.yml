@@ -1,0 +1,32 @@
+name: Get image tag
+description: Get image tag
+inputs:
+  branch:
+    description: Branch
+    required: true
+  dev-tag-format:
+    description: Format for dev tag
+    required: false
+    default: dev-:branch
+outputs:
+  tag:
+    description: Image tag
+    value: ${{ steps.get-tag.outputs.tag }}
+runs:
+  using: composite
+  steps:
+    - id: get-tag
+      run: |
+        tag=""
+
+        if [ "${{ inputs.branch }}" == "latest" ]; then
+          tag="latest"
+        elif [ ${{ startsWith(inputs.branch, 'v') }} == true ]; then
+          tag=`echo "${{ inputs.branch }}" | sed "s/^v/""/"`
+        else
+          branch="${{ inputs.branch }}"
+          tag=$(echo "${{ inputs.dev-tag-format }}" | sed "s|:branch|${branch}|g")
+        fi
+
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      shell: bash

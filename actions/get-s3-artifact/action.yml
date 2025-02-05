@@ -1,0 +1,34 @@
+name: Get S3 artifact
+description: Get s3 path of artifact
+inputs:
+  bucket:
+    description: S3 bucket name
+    required: true
+  project:
+    description: Project name
+    required: true
+  branch:
+    description: Branch name
+    required: true
+outputs:
+  artifact:
+    description: S3 path of artifact
+    value: ${{ steps.get-artifact.outputs.artifact }}
+runs:
+  using: composite
+  steps:
+    - id: get-artifact
+      run: |
+        if [ "${{ inputs.branch }}" == "latest" ]; then
+          prefix="release"
+          tag="latest"
+        elif [ ${{ startsWith(inputs.branch, 'v') }} == true ]; then
+          prefix="release"
+          tag=`echo "${{ inputs.branch }}" | sed "s/^v/""/"`
+        else
+          prefix="dev"
+          tag="${{ inputs.branch }}"
+        fi
+
+        echo "artifact=s3://${{ inputs.bucket }}/$prefix/${{ inputs.project }}/$tag.tgz" >> "$GITHUB_OUTPUT"
+      shell: bash
