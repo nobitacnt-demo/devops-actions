@@ -1,0 +1,34 @@
+name: Pull artifact from S3
+description: Pull artifact from S3
+inputs:
+  bucket:
+    description: S3 bucket name
+    required: true
+  project:
+    description: Project name
+    required: true
+  branch:
+    description: Branch name
+    required: true
+  target:
+    description: Destination dir name
+    required: false
+    default: .app
+runs:
+  using: composite
+  steps:
+    - id: get-artifact
+      uses: nobitacnt-demo/devops-actions/actions/get-s3-artifact@master
+      with:
+        bucket: ${{ inputs.bucket }}
+        project: ${{ inputs.project }}
+        branch: ${{ inputs.branch }}
+    - run: |
+        target="${{ inputs.target }}"
+        tgz="${{ inputs.target }}.tgz"
+        rm -rf $target $tgz
+        aws s3 cp ${{ steps.get-artifact.outputs.artifact }} $tgz
+        mkdir $target
+        tar -xzf $tgz -C $target
+      shell: bash
+      

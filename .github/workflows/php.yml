@@ -1,0 +1,87 @@
+name: PHP CI
+on:
+  workflow_call:
+    inputs:
+      registry:
+        required: true
+        type: string
+      repository:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+      php-image:
+        required: false
+        type: string
+        default: ghcr.io/nobitacnt/image-php-fpm:7.4.1
+      composer-phar:
+        required: false
+        type: string
+        default: composer
+      prod-tag-format:
+        type: string
+        description: Format for production tag
+        required: false
+        default: :branch
+      dev-tag-format:
+        type: string
+        description: Format for dev tag
+        required: false
+        default: dev-:branch
+    secrets:
+      docker-username:
+        required: true
+      docker-password:
+        required: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ${{ inputs.php-image }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Install composer dependencies
+        run: |
+          ${{ inputs.composer-phar }} install --no-scripts
+          tar -czf /tmp/app.tar .
+      - name: Archive application artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: app
+          path: /tmp/app.tar
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download application artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: app
+      - name: Extract application artifact
+        run: tar -xzf app.tar && rm app.tar
+      - name: Make image tags
+        id: make-tags
+        uses: nobitacnt-demo/devops-actions/actions/make-image-tags@master
+        with:
+          repository: ${{ inputs.repository }}
+          branch: ${{ inputs.branch }}
+          prod-tag-format: ${{ inputs.prod-tag-format }}
+          dev-tag-format: ${{ inputs.dev-tag-format }}
+      - name: Docker login
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ secrets.docker-username }}
+          password: ${{ secrets.docker-password }}
+      - name: Build and push image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.make-tags.outputs.tags }}
+      - uses: geekyeggo/delete-artifact@v1
+        with:
+          name: app

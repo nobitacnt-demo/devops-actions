@@ -1,0 +1,37 @@
+name: Make image tags
+description: Make tags for image
+inputs:
+  repository:
+    description: Repository
+    required: true
+  branch:
+    description: Branch
+    required: true
+  prod-tag-format:
+    description: Format for production tag
+    required: false
+    default: :branch
+  dev-tag-format:
+    description: Format for dev tag
+    required: false
+    default: dev-:branch
+outputs:
+  tags:
+    description: Image tags
+    value: ${{ steps.tags.outputs.tags }}
+runs:
+  using: composite
+  steps:
+    - id: tags
+      run: |
+        if [ ${{ startsWith(inputs.branch, 'v') }} == true ]; then
+          branch=$(echo "${{ inputs.branch }}" | sed "s|^v|""|")
+          tag=$(echo "${{ inputs.prod-tag-format }}" | sed "s|:branch|${branch}|g")
+          latestTag=$(echo "${{ inputs.prod-tag-format }}" | sed "s|:branch|latest|g")
+          echo "tags=${{ inputs.repository }}:$tag,${{ inputs.repository }}:$latestTag" >> "$GITHUB_OUTPUT"
+        else
+          branch="${{ inputs.branch }}"
+          tag=$(echo "${{ inputs.dev-tag-format }}" | sed "s|:branch|${branch}|g")
+          echo "tags=${{ inputs.repository }}:$tag" >> "$GITHUB_OUTPUT"
+        fi
+      shell: bash

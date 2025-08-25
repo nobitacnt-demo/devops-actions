@@ -1,0 +1,36 @@
+name: Deploy SST
+description: Deploy SST
+inputs:
+  s3-source-code:
+    description: S3 file path to source code
+    required: true
+  stage:
+    description: Stage name
+    required: true
+  env-file:
+    description: ENV file path
+  install:
+    description: The scripts will be executed before deploy
+runs:
+  using: composite
+  steps:
+    - run: |
+        rm -rf .app $tag.tgz
+        aws s3 cp ${{ inputs.s3-source-code }} $tag.tgz
+        mkdir .app
+        tar -xzf $tag.tgz -C .app
+      shell: bash
+      
+    - run: cp ${{ inputs.env-file }} .app/.env
+      shell: bash
+      if: ${{ inputs.env-file }}
+      
+    - run: cd .app && (${{ inputs.install }})
+      shell: bash
+      if: ${{ inputs.install }}
+      
+    - run: cd .app && npm install
+      shell: bash
+
+    - run: cd .app && npx sst deploy --stage ${{ inputs.stage }}
+      shell: bash

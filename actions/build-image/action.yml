@@ -1,0 +1,53 @@
+name: Push artifact to S3
+description: Push artifact to S3
+inputs:
+  registry:
+    description: Server address of Docker registry
+    required: true
+  repository:
+    description: The image repository
+    required: true
+  username:
+    description: Username used to log against the Docker registry
+    required: true
+  password:
+    description: Password or personal access token used to log against the Docker registry
+    required: true
+  branch:
+    description: The branch need to build image
+    required: true
+  prod-tag-format:
+    description: Format for production tag
+    required: false
+    default: :branch
+  dev-tag-format:
+    description: Format for dev tag
+    required: false
+    default: dev-:branch
+  context:
+    description: Build's context
+    required: false
+    default: .
+runs:
+  using: composite
+  steps:
+      - name: Make image tags
+        id: make-tags
+        uses: nobitacnt-demo/devops-actions/actions/make-image-tags@master
+        with:
+          repository: ${{ inputs.repository }}
+          branch: ${{ inputs.branch }}
+          prod-tag-format: ${{ inputs.prod-tag-format }}
+          dev-tag-format: ${{ inputs.dev-tag-format }}
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ inputs.username }}
+          password: ${{ inputs.password }}
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          push: true
+          tags: ${{ steps.make-tags.outputs.tags }}

@@ -1,0 +1,59 @@
+name: SST CI
+on:
+  workflow_call:
+    inputs:
+      project:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+      s3-bucket:
+        required: true
+        type: string
+      aws-role:
+        required: true
+        type: string
+      aws-region:
+        required: false
+        type: string
+        default: ap-southeast-1
+      build-latest-tag:
+        required: false
+        type: boolean
+        default: true
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.branch }}
+      - uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ inputs.aws-role }}
+          aws-region: ${{ inputs.aws-region }}
+      - run: |
+          if [ ${{ startsWith(inputs.branch, 'v') }} == true ]; then
+            prefix="release"
+            tag=$(echo "${{ inputs.branch }}" | sed "s|^v|""|")
+            buildLatestTag=true
+          else
+            prefix="dev"
+            tag="${{ inputs.branch }}"
+            buildLatestTag=false
+          fi
+
+          s3Url="s3://${{ inputs.s3-bucket }}/$prefix/${{ inputs.project }}"
+          outputFile="/tmp/$tag.tgz"
+
+          tar --exclude=.git -czf $outputFile ./
+
+          aws s3 cp $outputFile $s3Url/$tag.tgz
+
+          if [ ${{ inputs.build-latest-tag }} == true ] && [ $buildLatestTag == true ]; then
+            aws s3 cp $outputFile $s3Url/latest.tgz
+          fi

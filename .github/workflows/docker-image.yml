@@ -1,0 +1,56 @@
+name: Build & Push docker image
+on:
+  workflow_call:
+    inputs:
+      registry:
+        required: true
+        type: string
+      repository:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+      prod-tag-format:
+        type: string
+        description: Format for production tag
+        required: false
+        default: :branch
+      dev-tag-format:
+        type: string
+        description: Format for dev tag
+        required: false
+        default: dev-:branch
+    secrets:
+      docker-username:
+        required: true
+      docker-password:
+        required: true
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Make image tags
+        id: make-tags
+        uses: nobitacnt-demo/devops-actions/actions/make-image-tags@master
+        with:
+          repository: ${{ inputs.repository }}
+          branch: ${{ inputs.branch }}
+          prod-tag-format: ${{ inputs.prod-tag-format }}
+          dev-tag-format: ${{ inputs.dev-tag-format }}
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ secrets.docker-username }}
+          password: ${{ secrets.docker-password }}
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.make-tags.outputs.tags }}
